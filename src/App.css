@@ -1,0 +1,146 @@
+
+.sam{
+  --sam-bg:#E3EDE6;--sam-ink:#14332A;--sam-muted:#4E6B60;
+  --sam-ball:#1F4D3F;--sam-chalk:#F4EFD8;--sam-pick:#F2B632;--sam-bad:#E4572E;
+  --sam-dot:#8fafa3;--sam-dot-near:#1F4D3F;
+  position:relative;
+  max-width:600px;
+  margin:0 auto;
+  padding:20px 16px 28px;
+  background:var(--sam-bg);
+  color:var(--sam-ink);
+  font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  .sam{
+    --sam-bg:#0E1A16;--sam-ink:#E3EDE6;--sam-muted:#93AEA2;
+    --sam-dot:#3d6b5c;--sam-dot-near:#F2B632;
+  }
+}
+html{
+  background:#E3EDE6;
+}
+@media (prefers-color-scheme:dark){
+  html{background:#0E1A16}
+}
+.sam-dots{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  z-index:0;
+}
+.sam *{
+  box-sizing:border-box;
+}
+
+.sam-title,
+.sam-sub,
+.sam-bar,
+.sam-stage{
+  position:relative;
+  z-index:1;
+}
+.sam-title{
+  font-size:34px;
+  line-height:1.1;
+  margin:0 0 6px;
+  font-weight:700;
+  letter-spacing:-.02em;
+}
+
+
+.sam-sub{
+  margin:0 0 16px;
+  color:var(--sam-muted);
+  font-size:16px;
+  line-height:1.45;
+  max-width:46ch;
+}
+
+.sam-bar{
+  display:flex;
+  align-items:center;
+  gap:20px;
+  flex-wrap:wrap;
+  font-size:16px;
+  margin-bottom:6px;
+}
+
+
+.sam-bar b{
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+
+.sam-bar .sam-btn{
+  margin-left:auto;
+}
+.sam-bar .sam-btn:hover{
+  color:#1F8A4C;
+}
+.sam-bar .sam-btn.is-red,
+.sam-bar .sam-btn.is-red:hover{
+  color:#D32F2F;
+}
+
+
+.sam-btn{
+  font:inherit;
+  font-weight:500;
+  background:var(--sam-ink);color:var(--sam-bg);
+  border:0;
+  border-radius:999px;
+  padding:9px 18px;
+  cursor:pointer;
+}
+
+
+.sam-btn:focus-visible{
+  outline:3px solid var(--sam-pick);
+  outline-offset:2px;
+}
+
+
+.sam-stage{
+  position:relative;
+  display:flex;
+  justify-content:center;
+}
+
+  .sam-canvas{
+  display:block;
+  max-width:100%;
+  touch-action:none;
+  cursor:grab;
+}
+.sam-canvas:active{
+  cursor:grabbing;
+}
+
+.sam-win{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+.sam-win-card{
+  background:var(--sam-bg);
+  border:2px solid var(--sam-ink);
+  border-radius:20px;
+  padding:22px 26px;
+  max-width:300px;
+}
+
+.sam-win-card h2{
+  margin:0 0 6px;
+  font-size:26px;
+}
+
+.sam-win-card p{
+  margin:0 0 14px;
+  color:var(--sam-muted);
+}
