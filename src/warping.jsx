@@ -101,7 +101,7 @@ export default function DotGridBackground() {
             py += (dy / d) * prox * DOT_PUSH;
           }
 
-          for (const r of ripples) {
+          for (const r of ripples) {``
             const age = now - r.t;
             const rx = x - r.x;
             const ry = y - r.y;

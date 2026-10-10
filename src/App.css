@@ -1,8 +1,9 @@
 
 .sam{
   --sam-bg:#E3EDE6;--sam-ink:#14332A;--sam-muted:#4E6B60;
-  --sam-ball:#1F4D3F;--sam-chalk:#F4EFD8;--sam-pick:#F2B632;--sam-bad:#E4572E;
+  --sam-ball:#143D2B;--sam-chalk:#FFFFFF;--sam-pick:#F2B632;--sam-bad:#E4572E;
   --sam-dot:#8fafa3;--sam-dot-near:#1F4D3F;
+  --sam-green:#3DAA6B;--sam-on-green:#0E1A16;
   position:relative;
   max-width:600px;
   margin:0 auto;
@@ -43,6 +44,7 @@ html{
   z-index:1;
 }
 .sam-title{
+  color:var(--sam-green);
   font-size:34px;
   line-height:1.1;
   margin:0 0 6px;
@@ -62,9 +64,9 @@ html{
 .sam-bar{
   display:flex;
   align-items:center;
-  gap:20px;
+  gap:8px 12px;
   flex-wrap:wrap;
-  font-size:16px;
+  font-size:15px;
   margin-bottom:6px;
 }
 
@@ -74,29 +76,33 @@ html{
   font-variant-numeric:tabular-nums;
 }
 
-.sam-bar .sam-btn{
-  margin-left:auto;
+.sam-header{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:6px;
 }
-.sam-bar .sam-btn:hover{
-  color:#1F8A4C;
+.sam-header .sam-title{
+  margin:0;
 }
-.sam-bar .sam-btn.is-red,
-.sam-bar .sam-btn.is-red:hover{
-  color:#D32F2F;
-}
-
-
 .sam-btn{
   font:inherit;
   font-weight:500;
-  background:var(--sam-ink);color:var(--sam-bg);
-  border:0;
+  background:#000000;color:var(--sam-green);
+  border:2px solid var(--sam-green);
   border-radius:999px;
-  padding:9px 18px;
+  padding:7px 16px;
   cursor:pointer;
 }
 
 
+.sam-btn:hover{
+  background:var(--sam-green);
+  color:#000000;
+}
 .sam-btn:focus-visible{
   outline:3px solid var(--sam-pick);
   outline-offset:2px;
@@ -143,4 +149,154 @@ html{
 .sam-win-card p{
   margin:0 0 14px;
   color:var(--sam-muted);
+}
+
+.sam-toy-actions,
+.sam-toy-wrap{
+  position:relative;
+  z-index:1;
+  display:flex;
+  justify-content:center;
+}
+.sam-toy-actions{
+  margin:0 0 16px;
+}
+.sam-toy-wrap{
+  margin-top:32px;
+}
+.sam-toy-screen{
+  position:fixed;
+  inset:0;
+  z-index:10;
+  max-width:none;
+  margin:0;
+  padding-inline:max(16px, calc(50% - 284px));
+  overflow-y:auto;
+}
+
+.sam-back{
+  position:fixed;
+  left:16px;
+  bottom:16px;
+  z-index:11;
+  box-shadow:0 2px 10px rgba(0,0,0,.25);
+}
+
+.sam-start{
+  font-weight:700;
+  min-width:140px;
+  padding:12px 40px;
+}
+
+.sam-btn:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+/* Warm up sits in the top-right corner of the window, not just the game column. */
+.sam-warmup{
+  position:fixed;
+  top:16px;
+  right:16px;
+  z-index:5;
+}
+
+/* Corner badges (level, time): look like buttons but are only labels. */
+.sam-badge{
+  position:fixed;
+  z-index:5;
+  font-weight:500;
+  background:#000000;
+  color:var(--sam-green);
+  border:2px solid var(--sam-green);
+  border-radius:999px;
+  padding:7px 16px;
+  cursor:default;
+  user-select:none;
+  pointer-events:none;
+}
+.sam-level{
+  left:16px;
+  bottom:16px;
+}
+/* Time with the pairs/speed/misses pill under it, centred on the right edge of the window. */
+.sam-side{
+  position:fixed;
+  right:16px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+  min-width:240px;
+}
+.sam-time,
+.sam-stats{
+  background:#000000;
+  color:var(--sam-green);
+  border:2px solid var(--sam-green);
+  border-radius:999px;
+  padding:7px 20px;
+  cursor:default;
+  user-select:none;
+  font-weight:500;
+}
+.sam-time{
+  text-align:center;
+}
+.sam-time b{
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+.sam-badge b{
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Pairs, speed and misses grouped in one pill: styled like the buttons but only a label. */
+.sam-stats{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+}
+.sam-stats b{
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Phones and narrow windows: Time and the stats pill sit above the ball instead of over it. */
+@media (max-width:760px){
+  .sam-side{
+    position:relative;
+    top:auto;
+    right:auto;
+    transform:none;
+    min-width:0;
+    margin:12px 0;
+  }
+  .sam-stats{
+    gap:12px;
+    font-size:14px;
+  }
+  /* Corner buttons go back into the page so they can't cover the title or the ball. */
+  .sam-header .sam-title{
+    font-size:28px;
+  }
+  .sam-warmup{
+    position:relative;
+    top:auto;
+    right:auto;
+    flex-shrink:0;
+  }
+  .sam-level{
+    position:relative;
+    left:auto;
+    bottom:auto;
+    z-index:1;
+    display:inline-block;
+    margin-bottom:12px;
+  }
 }

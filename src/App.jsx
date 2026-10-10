@@ -1,93 +1,67 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import './App.css'
-import DotGridBackground from "./warping.jsx";
+import "./App.css";
+import DotGridBackground from "./Warping.jsx";
+import drawBall from "./game/drawBall.js";
+import ResultCard from "./game/ResultCard.jsx";
+import WarmUpScreen from "./game/WarmUpScreen.jsx";
+import {
+  FRAME_MS,
+  MAX_LEVEL,
+  MAX_MISSES,
+  MAX_SIZE,
+  PITCH_LIMIT,
+  TIME_LIMIT_MS,
+  createSim,
+  formatTime,
+  levelConfig,
+  levelGoal,
+  levelSpeed,
+  playTime,
+  spinSpeed,
+} from "./game/sim.js";
 
-
-
-
-const MAX_NUMBER = 20;
-const MAX_MISSES = 3;
-const COPIES = 6;
-const TOTAL = MAX_NUMBER * COPIES;
-const AUTO_SPIN = 0.003;
-const PITCH_LIMIT = 1.2;
 const DRAG_THRESHOLD = 6;
-const POP_MS = 450;
-const BAD_MS = 350;
-const MAX_SIZE = 560;
-const RED_TEXT_MS = 30 * 1000;
-const GOLDEN_ANGLE = 2.399963;
+const LEVEL_KEY = "spin-and-match-level";
 
-function buildPoints() {
-  const nums = [];
-  for (let n = 1; n <= MAX_NUMBER; n++) {
-    for (let k = 0; k < COPIES; k++) nums.push(n);
+// The level you reached is kept in this browser so a refresh doesn't send you back to level 1.
+function loadLevel() {
+  try {
+    const n = Number(localStorage.getItem(LEVEL_KEY));
+    return n >= 1 && n <= MAX_LEVEL ? Math.floor(n) : 1;
+  } catch {
+    return 1;
   }
-  for (let i = nums.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [nums[i], nums[j]] = [nums[j], nums[i]];
-  }
-  return nums.map((n, i) => {
-    const y = 1 - (2 * (i + 0.5)) / nums.length;
-    const r = Math.sqrt(1 - y * y);
-    const t = i * GOLDEN_ANGLE;
-    return {
-      n,
-      x: Math.cos(t) * r,
-      y,
-      z: Math.sin(t) * r,
-      alive: true,
-      px: 0,
-      py: 0,
-      pz: 0,
-      size: 14,
-      badAt: 0,
-    };
-  });
 }
 
-
-function formatTime(ms) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
-
-function createSim() {
-  return {
-    pts: buildPoints(),
-    yaw: 0,
-    pitch: 0.35,
-    vy: AUTO_SPIN,
-    vp: 0,
-    drag: null,
-    sel: null,
-    misses: 0,
-    lost: false,
-    fx: [],
-    size: 0,
-    startedAt: 0,
-  };
+function saveLevel(level) {
+  try {
+    localStorage.setItem(LEVEL_KEY, String(level));
+  } catch {
+    // Storage blocked (private mode etc.): the game still works, it just won't remember.
+  }
 }
 
 export default function SpinAndMatch() {
   const canvasRef = useRef(null);
   const sim = useRef(null);
-  if (sim.current === null) sim.current = createSim();
+  if (sim.current === null) sim.current = createSim(loadLevel());
 
-  const [left, setLeft] = useState(TOTAL);
+  const [level, setLevel] = useState(() => sim.current.level);
+  const [pairs, setPairs] = useState(0);
+  const [levelDone, setLevelDone] = useState(false);
   const [misses, setMisses] = useState(0);
   const [lost, setLost] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [timeUp, setTimeUp] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [finishedIn, setFinishedIn] = useState(null);
-  const [redText, setRedText] = useState(false);
-  const redTimer = useRef(0);
+  const [showToy, setShowToy] = useState(false);
 
   // Render loop lives outside React state so spinning never triggers re-renders.
   useEffect(() => {
     const canvas = canvasRef.current;
     const g = canvas.getContext("2d");
     let raf = 0;
+    let last = 0;
 
     const fit = () => {
       const w = Math.min(canvas.parentElement.clientWidth, MAX_SIZE);
@@ -106,75 +80,10 @@ export default function SpinAndMatch() {
 
     const frame = (now) => {
       const s = sim.current;
-      const S = s.size;
-      const R = S * 0.4;
-      const cs = getComputedStyle(canvas);
-      const ball = cs.getPropertyValue("--sam-ball");
-      const chalk = cs.getPropertyValue("--sam-chalk");
-      const pick = cs.getPropertyValue("--sam-pick");
-      const bad = cs.getPropertyValue("--sam-bad");
-      const ink = cs.getPropertyValue("--sam-ball");
-
-      if (!s.drag) {
-        s.yaw += s.vy;
-        s.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, s.pitch + s.vp));
-        s.vy += (AUTO_SPIN - s.vy) * 0.02;
-        s.vp *= 0.92;
-      }
-
-      const cy = Math.cos(s.yaw);
-      const sy = Math.sin(s.yaw);
-      const cp = Math.cos(s.pitch);
-      const sp = Math.sin(s.pitch);
-      for (const p of s.pts) {
-        const x1 = p.x * cy + p.z * sy;
-        const z1 = -p.x * sy + p.z * cy;
-        const y2 = p.y * cp - z1 * sp;
-        const z2 = p.y * sp + z1 * cp;
-        const k = 1 + z2 * 0.14;
-        p.px = S / 2 + x1 * R * k;
-        p.py = S / 2 + y2 * R * k;
-        p.pz = z2;
-        p.size = 12 + (z2 + 1) * 6;
-      }
-
-      g.clearRect(0, 0, S, S);
-      g.fillStyle = ball;
-      g.beginPath();
-      g.arc(S / 2, S / 2, R * 1.13, 0, Math.PI * 2);
-      g.fill();
-
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      const visible = s.pts.filter((p) => p.alive).sort((a, b) => a.pz - b.pz);
-      for (const p of visible) {
-        const front = p.pz > -0.05;
-        const isSel = p === s.sel;
-        const isBad = p.badAt > 0 && now - p.badAt < BAD_MS;
-        g.globalAlpha = front ? 0.55 + (p.pz + 1) * 0.225 : 0.18;
-        if (isSel || isBad) {
-          g.fillStyle = isBad ? bad : pick;
-          g.beginPath();
-          g.arc(p.px, p.py, p.size * 0.85, 0, Math.PI * 2);
-          g.fill();
-        }
-        g.fillStyle = isSel ? ink : chalk;
-        g.font = `700 ${p.size}px "Bricolage Grotesque", system-ui, sans-serif`;
-        g.fillText(String(p.n), p.px, p.py + 1);
-      }
-
-      s.fx = s.fx.filter((f) => now - f.t < POP_MS);
-      g.strokeStyle = pick;
-      g.lineWidth = 3;
-      for (const f of s.fx) {
-        const a = (now - f.t) / POP_MS;
-        g.globalAlpha = 1 - a;
-        g.beginPath();
-        g.arc(f.x, f.y, 10 + a * 34, 0, Math.PI * 2);
-        g.stroke();
-      }
-      g.globalAlpha = 1;
-
+      // Speeds are per 60fps frame; scale by real frame time so 120Hz screens spin the same.
+      const dt = Math.min((now - (last || now)) / FRAME_MS, 3);
+      last = now;
+      drawBall(canvas, g, s, now, dt);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -185,17 +94,37 @@ export default function SpinAndMatch() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!started || finishedIn !== null || lost) return undefined;
-    const id = setInterval(() => setElapsed(Date.now() - sim.current.startedAt), 250);
-    return () => clearInterval(id);
-  }, [started, finishedIn, lost]);
+  // Stops the ball and the clock, keeping the time played so far.
+  const halt = (s, playedMs = playTime(s)) => {
+    s.playedMs = playedMs;
+    s.playing = false;
+    s.drag = null;
+    s.sel = null;
+    s.vy = 0;
+    s.vp = 0;
+    setElapsed(playedMs);
+    setPlaying(false);
+  };
 
-  useEffect(() => () => window.clearTimeout(redTimer.current), []);
+  useEffect(() => {
+    if (!playing || levelDone || lost) return undefined;
+    const id = setInterval(() => {
+      const s = sim.current;
+      if (playTime(s) < TIME_LIMIT_MS) {
+        setElapsed(playTime(s));
+        return;
+      }
+      s.lost = true;
+      halt(s, TIME_LIMIT_MS);
+      setTimeUp(true);
+    }, 100);
+    return () => clearInterval(id);
+  }, [playing, levelDone, lost]);
+
 
   const tap = useCallback((x, y) => {
     const s = sim.current;
-    if (s.lost || s.pts.every((p) => !p.alive)) return;
+    if (!s.playing || s.lost) return;
 
     let target = null;
     for (const p of s.pts) {
@@ -205,11 +134,6 @@ export default function SpinAndMatch() {
       }
     }
     if (!target) return;
-
-    if (!s.startedAt) {
-      s.startedAt = Date.now();
-      setStarted(true);
-    }
 
     if (s.sel === target) {
       s.sel = null;
@@ -228,9 +152,14 @@ export default function SpinAndMatch() {
       s.fx.push({ x: first.px, y: first.py, t: now }, { x: target.px, y: target.py, t: now });
       first.alive = false;
       target.alive = false;
-      const remaining = s.pts.filter((p) => p.alive).length;
-      setLeft(remaining);
-      if (remaining === 0) setFinishedIn(Date.now() - s.startedAt);
+      s.pairs += 1;
+      setPairs(s.pairs);
+      // The level is only cleared once every number on the ball is gone.
+      if (s.pts.every((p) => !p.alive)) {
+        s.lost = true;
+        halt(s);
+        setLevelDone(true);
+      }
     } else {
       first.badAt = now;
       target.badAt = now;
@@ -238,12 +167,26 @@ export default function SpinAndMatch() {
       setMisses(s.misses);
       if (s.misses >= MAX_MISSES) {
         s.lost = true;
+        halt(s);
         setLost(true);
       }
     }
   }, []);
 
+  const toggleSpin = () => {
+    const s = sim.current;
+    if (s.playing) {
+      halt(s);
+    } else {
+      s.resumedAt = Date.now();
+      s.playing = true;
+      s.vy = spinSpeed(s);
+      setPlaying(true);
+    }
+  };
+
   const onPointerDown = (e) => {
+    if (!sim.current.playing) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     sim.current.drag = { x: e.clientX, y: e.clientY, moved: false };
   };
@@ -258,8 +201,7 @@ export default function SpinAndMatch() {
     d.moved = true;
     s.yaw += dx * 0.006;
     s.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, s.pitch + dy * 0.006));
-    s.vy = dx * 0.006;
-    s.vp = dy * 0.003;
+    // No fling: letting go returns the ball to the level's speed instead of spinning it faster.
     d.x = e.clientX;
     d.y = e.clientY;
   };
@@ -277,95 +219,119 @@ export default function SpinAndMatch() {
     sim.current.drag = null;
   };
 
-  const reset = () => {
-    sim.current = createSim();
-    setLeft(TOTAL);
+  const reset = (nextLevel = sim.current.level) => {
+    sim.current = createSim(nextLevel);
+    saveLevel(nextLevel);
+    setLevel(nextLevel);
+    setPairs(0);
+    setLevelDone(false);
     setMisses(0);
     setLost(false);
-    setStarted(false);
+    setTimeUp(false);
+    setPlaying(false);
     setElapsed(0);
-    setFinishedIn(null);
     // The canvas size is owned by the resize observer, so carry it over.
     const w = Math.min(canvasRef.current.parentElement.clientWidth, MAX_SIZE);
     sim.current.size = w;
   };
 
-  const onNewGame = () => {
-    reset();
-    window.clearTimeout(redTimer.current);
-    if (redText) {
-      setRedText(false);
-      return;
-    }
-    setRedText(true);
-    redTimer.current = window.setTimeout(() => setRedText(false), RED_TEXT_MS);
+  // Pauses the level (if running) rather than restarting it; press Start to carry on afterwards.
+  const openWarmUp = () => {
+    const s = sim.current;
+    if (s.playing) halt(s);
+    setShowToy(true);
   };
 
 
-  const time = formatTime(finishedIn ?? elapsed);
+  const time = formatTime(elapsed);
+  const goal = levelGoal(level);
+  const { numbers } = levelConfig(level);
+  const speed = levelSpeed(level).toFixed(1);
+  const restartLevel = () => reset(level);
 
   return (
     <section className="sam">
       <DotGridBackground />
-      <h1 className="sam-title">Spin and match</h1>
+      <header className="sam-header">
+        <h1 className="sam-title">Spin and match</h1>
+        <button
+          type="button"
+          className="sam-btn sam-warmup"
+          onClick={openWarmUp}
+        >
+          Warm up
+        </button>
+      </header>
       <p className="sam-sub">
-        Drag the ball to spin it. Tap two matching numbers to clear them. Three misses and the game is over.
+        Tap two matching numbers to clear them. Clear every number on the ball in one minute to reach the next level. Each level spins faster and has more numbers, up to level {MAX_LEVEL}. Three misses and you replay the level.
       </p>
 
       <div className="sam-bar">
-        <span>
-          Left <b>{left}</b>
-        </span>
-        <span>
-          Time <b>{time}</b>
-        </span>
-        <span>
-          Misses <b>{misses}</b>
-        </span>
         <button
           type="button"
-          className={redText ? "sam-btn is-red" : "sam-btn"}
-          onClick={onNewGame}
+          className="sam-btn sam-start"
+          onClick={toggleSpin}
+          disabled={lost || timeUp || levelDone}
         >
-          New game
+          {playing ? "Stop" : "Start"}
         </button>
+      </div>
+
+      <div className="sam-side">
+        <div className="sam-time">
+          Time <b>{time}</b> / {formatTime(TIME_LIMIT_MS)}
+        </div>
+        <div className="sam-stats">
+          <span>
+            Pairs <b>{pairs}</b> / {goal}
+          </span>
+          <span>
+            Speed <b>{speed}</b>
+          </span>
+          <span>
+            Misses <b>{misses}</b> / {MAX_MISSES}
+          </span>
+        </div>
+      </div>
+      <div className="sam-badge sam-level" aria-live="polite">
+        Level <b>{level}</b> / {MAX_LEVEL}
       </div>
 
       <div className="sam-stage">
         <canvas
           ref={canvasRef}
           className="sam-canvas"
-          aria-label="Spinning ball of numbers from 1 to 20"
+          aria-label={`Spinning ball of numbers from 1 to ${numbers}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerCancel}
         />
-        {lost && (
-          <div className="sam-win" role="status">
-            <div className="sam-win-card">
-              <h2>Game over</h2>
-              <p>Three misses. Start a new game.</p>
-              <button type="button" className="sam-btn" onClick={reset}>
-                Start a new game
-              </button>
-            </div>
-          </div>
+        {timeUp && (
+          <ResultCard title="Time up" button="Restart" onClick={restartLevel}>
+            You cleared {pairs} of {goal} pairs. Try level {level} again.
+          </ResultCard>
         )}
-        {finishedIn !== null && (
-          <div className="sam-win" role="status">
-            <div className="sam-win-card">
-              <h2>Ball cleared</h2>
-              <p>
-                Time {formatTime(finishedIn)} with {misses} miss{misses === 1 ? "" : "es"}.
-              </p>
-              <button type="button" className="sam-btn" onClick={reset}>
-                Play again
-              </button>
-            </div>
-          </div>
+        {lost && !timeUp && !levelDone && (
+          <ResultCard title="Game over" button="Restart" onClick={restartLevel}>
+            Three misses. Try level {level} again.
+          </ResultCard>
+        )}
+        {levelDone && level < MAX_LEVEL && (
+          <ResultCard title={`Level ${level} cleared`} button="Next level" onClick={() => reset(level + 1)}>
+            Every number cleared in {time}. Level {level + 1} spins faster.
+          </ResultCard>
+        )}
+        {levelDone && level === MAX_LEVEL && (
+          <ResultCard title={`You beat all ${MAX_LEVEL} levels`} button="Play again from level 1" onClick={() => reset(1)}>
+            Level {MAX_LEVEL} cleared in {time}.
+          </ResultCard>
         )}
       </div>
+
+      {showToy && (
+        <WarmUpScreen onBack={() => setShowToy(false)} />
+      )}
     </section>
   );
 }
